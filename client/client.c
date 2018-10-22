@@ -2,9 +2,8 @@
  ============================================================================
  Name        : client.c
  Author      : xMing
- Version     :
- Copyright   : Your copyright notice
- Description :
+ Version     : 1.0.0_alpha
+ Description : A client for cpan
  ============================================================================
  */
 #include <stdio.h>
