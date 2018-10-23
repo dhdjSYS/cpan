@@ -48,5 +48,6 @@ if($size>8*1024*1024){
 	file_put_contents($base.'files/'.$info['name'].'/list.json',json_encode(array('part_1')));
 }
 file_put_contents($base.'files/'.$info['name'].'/password',$argv[2]);
+file_put_contents($base.'files/'.$info['name'].'/test',$Security->Encrypt('powered by dhdj&xming'));
 system('rm -rf '.$argv[1]);
 echo '['.date("Y-m-d H:i:s").']'.$argv[1]." 执行完毕".PHP_EOL;
