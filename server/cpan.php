@@ -61,6 +61,7 @@ function onReceive($server, $fd, $reactorId, $data){
 		if(rand(0,10000)==5000){
 			echo '['.date("Y-m-d H:i:s").']'."从".$server->connection_info($fd)['remote_ip'].':'.$server->connection_info($fd)['remote_port'].'获取文件数据中. fd='.$fd.' reactorId='.$reactorId.PHP_EOL;
 		}
+		clearstatcache();
 		if(filesize($fdDir.'file')>=$info['length']){
 			$server->send($fd,'0002');
 			sleep(1);
@@ -78,7 +79,7 @@ function onReceive($server, $fd, $reactorId, $data){
 			file_put_contents($fdDir.'info.json',json_encode(array('status'=>'transfering','name'=>$information['name'],'length'=>$information['length'],'password'=>$information['password'])));
 			file_put_contents($fdDir.'file', '');
 			echo '['.date("Y-m-d H:i:s").']'."从".$server->connection_info($fd)['remote_ip'].':'.$server->connection_info($fd)['remote_port'].'获取文件信息成功. fd='.$fd.' reactorId='.$reactorId.PHP_EOL;
-			if(strstr($information['name'],'.') or strstr($information['name'],'/')){
+			if($information['name']=='.' or $information['name']=='..' or strstr($information['name'],'/')){
 				$server->close($fd,true);
 			}else{
 				$server->send($fd,'0001');
