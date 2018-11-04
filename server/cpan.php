@@ -7,7 +7,7 @@
 $cpan = new swoole_server('0.0.0.0', 2333, SWOOLE_BASE, SWOOLE_SOCK_TCP);
 //swoole设置
 $cpan->set(array(
-	//4个worker线程
+	//8个worker线程
     'worker_num' => 8,
     //4个reactor线程
     'reactor_num' => 4,
