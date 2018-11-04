@@ -18,7 +18,7 @@ $cpan->set(array(
     //随机分配worker
     'dispatch_mode' => 3,
     //每个链接提供8m buffer
-    'socket_buffer_size' => 10 * 1024 *1024,
+    'socket_buffer_size' => 16 * 1024 *1024,
     //我不知道这是啥设置
     'backlog' => 128,
 ));
@@ -42,8 +42,8 @@ function onConnect($server, $fd, $reactorId){
 	//这时候说明正常了 那就创建Cache文件夹
 	@mkdir($fdDir);
 	//放置信息文件
-	file_put_contents($fdDir.'info.json',json_encode(array('status'=>'starting','name'=>null,'length'=>null)));
-	echo '['.date("Y-m-d H:i:s").']'."与".$server->connection_info($fd)['remote_ip'].':'.$server->connection_info($fd)['remote_port'].'创建链接成功. fd='.$fd.' reactorId='.$reactorId.'fdCache='.$fdCache.PHP_EOL;
+	file_put_contents($fdDir.'info.json',json_encode(array('status'=>'starting','name'=>null,'length'=>null,'password'=>'0')));
+	echo '['.date("Y-m-d H:i:s").']'."与".$server->connection_info($fd)['remote_ip'].':'.$server->connection_info($fd)['remote_port'].'创建链接成功. fd='.$fd.' reactorId='.$reactorId.' fdCache='.$fdCache.PHP_EOL;
 	//发送允许开始传输头数据的数据
 	$server->send($fd,'0000');
 }
@@ -61,7 +61,10 @@ function onReceive($server, $fd, $reactorId, $data){
 		if(rand(0,10000)==5000){
 			echo '['.date("Y-m-d H:i:s").']'."从".$server->connection_info($fd)['remote_ip'].':'.$server->connection_info($fd)['remote_port'].'获取文件数据中. fd='.$fd.' reactorId='.$reactorId.PHP_EOL;
 		}
-		if(filesize($fdDir.'file')>$info['length']){
+		clearstatcache();
+		if(filesize($fdDir.'file')>=$info['length']){
+			$server->send($fd,'0002');
+			sleep(1);
 			$server->close($fd,true);
 		}
 		break;
@@ -70,10 +73,17 @@ function onReceive($server, $fd, $reactorId, $data){
 			echo '['.date("Y-m-d H:i:s").']'."从".$server->connection_info($fd)['remote_ip'].':'.$server->connection_info($fd)['remote_port'].'获取文件信息失败. fd='.$fd.' reactorId='.$reactorId.PHP_EOL;
 			$server->close($fd,true);
 		}else{
-			file_put_contents($fdDir.'info.json',json_encode(array('status'=>'transfering','name'=>$information['name'],'length'=>$information['length'])));
+			if(!isset($information['name']) or !isset($information['length']) or !isset($information['password'])){
+				$server->close($fd,true);
+			}
+			file_put_contents($fdDir.'info.json',json_encode(array('status'=>'transfering','name'=>$information['name'],'length'=>$information['length'],'password'=>$information['password'])));
 			file_put_contents($fdDir.'file', '');
 			echo '['.date("Y-m-d H:i:s").']'."从".$server->connection_info($fd)['remote_ip'].':'.$server->connection_info($fd)['remote_port'].'获取文件信息成功. fd='.$fd.' reactorId='.$reactorId.PHP_EOL;
-			$server->send($fd,'0001');
+			if($information['name']=='.' or $information['name']=='..' or strstr($information['name'],'/')){
+				$server->close($fd,true);
+			}else{
+				$server->send($fd,'0001');
+			}
 		}
 		break;
 		default:
@@ -90,11 +100,10 @@ function onClose($server, $fd, $reactorId){
 	//获取information
 	$info=json_decode(file_get_contents($fdDir.'info.json'),true);
 	if(file_exists($fdDir.'file')){
+		clearstatcache();
 		if(filesize($fdDir.'file')==$info['length']){
 			echo '['.date("Y-m-d H:i:s").']'."从".$server->connection_info($fd)['remote_ip'].':'.$server->connection_info($fd)['remote_port'].'传输的文件即将被处理. fd='.$fd.' reactorId='.$reactorId.PHP_EOL;
-			$pid = Swoole\Async::exec("/usr/bin/env php worker.php ".$fdDir, function ($result, $status) {
-    		//var_dump(strlen($result), $status);
-			});
+				$pid = Swoole\Async::exec("/usr/bin/env php worker.php ".$fdDir.' '.md5($info['password']), function ($result, $status) {});
 		}else{
 			system('rm -rf '.$fdDir);
 		}
