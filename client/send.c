@@ -3,43 +3,35 @@
  Name        : client.c
  Author      : xMing
  Version     : 1.0.0_alpha
- Description : A client for cpan
+ Description : A file sender client for cpan
  ============================================================================
  */
 #include <stdio.h>
 #include <stdlib.h>
-//read,write,close等文件操作在此定义
 #include <unistd.h>
-//一切皆socket
 #include <sys/socket.h>
-//错误errno
 #include <errno.h>
-//IPPROTO_TCP常量在此定义
 #include <netinet/in.h>
-//inet_addr()在此定义
 #include <arpa/inet.h>
-//gethostbyname()在此定义
 #include <netdb.h>
-//字符串操作
 #include <string.h>
-//查看文件大小
-#include <sys/stat.h>
+#include <math.h>
 #define check_status(sock,code) \
-  int time = 0; \
-  char output[16]; \
+  time = 0; \
+  memset(output, 0, strlen(output)*sizeof(char)); \
   while(1){ \
     time++; \
-    if(time > 5){ \
-      puts("连接超时\n"); \
+    if(time > 10){ \
+      printf("连接超时,状态码"); \
+      puts(code); \
       return 1; \
     } \
     if(read(sock,output,4) > 0){ \
       if(strcmp(output,code) == 0){ \
         break; \
       } \
-      memset(output, 0, strlen(output)*sizeof(char)); \
     } \
-    sleep(1); \
+    usleep(pow(10,6)/2); \
   }
 int main(int argc,char** argv)
 {
@@ -56,7 +48,6 @@ int main(int argc,char** argv)
     printf("%s文件不存在\n",argv[1]);
     return 1;
   }
-  puts("z");
   //套接字
   int sock;
   //连接服务器时用
@@ -73,43 +64,34 @@ int main(int argc,char** argv)
   struct hostent *hp;
   //支持域名和ip的方法
   hp = gethostbyname("35.237.187.165");
-  /* memcpy()详解:
-     函数原型: void *memcpy(void *dest, const void *src, size_t n);
-     功能: 从源src所指的内存地址的起始位置开始拷贝n个字节到目标dest所指的内存地址的起始位置中
-     返回值:指向dest的指针
-  */
   memcpy(&addr_in.sin_addr.s_addr, hp->h_addr_list[0], (size_t)hp->h_length);
-  puts("x");
   //连接服务器
   if(connect(sock,(struct sockaddr*) &addr_in,sizeof(addr_in)) < 0){
     printf("连接失败: %s(errno: %d)\n",strerror(errno),errno);
     return 1;
   }
-  puts("a");
+  int time = 0;
+  char output[16];
   check_status(sock,"0000");
-  puts("b");
   FILE *fp=fopen(argv[1],"rb");
   if(fp==NULL){
 	    puts("文件读取失败\n");
     	return 1;
   }
-  puts("c");
-  fseek(fp, 0L, SEEK_END);
+  fseek(fp, 0, SEEK_END);
   unsigned int fileLen = ftell(fp);
-  printf("%d\n",fileLen);
-  char *json = (char *) malloc(sizeof(char) * fileLen);
-  puts("e");
+  char json[100];
+  char *text = (char *) malloc(sizeof(char) * (fileLen+1));
   fseek(fp, 0, SEEK_SET);
-  puts("f");
-  fread(json, fileLen, sizeof(char), fp);
-  puts("g");
+  fread(text, sizeof(char), fileLen, fp);
   fclose(fp);
-  puts("d");
-  sprintf(json,"{\"name\":\"%s\",\"length\":%d,\"password\":\"%s\"}",argv[1],fileLen,password);
-  printf("%s",json);
+  sprintf(json,"{\"name\":\"%s\",\"length\":\"3\",\"password\":\"%s\"}",argv[1],/*fileLen,*/password);
   write(sock,json,strlen(json));
-  free(json);
-  puts("ok\n");
+  check_status(sock,"0001");
+  write(sock,text,strlen(text));
+  free(text);
+  check_status(sock,"0002");
+  puts("传输完毕");
   close(sock);
   return 0;
 }
